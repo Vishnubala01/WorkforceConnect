@@ -1,0 +1,53 @@
+# ==========================================
+# .NET / C# Build and Output Files
+# ==========================================
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+app_data/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.dotCover
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# User Secrets & Local Config
+secrets.json
+*.userprefs
+
+# ==========================================
+# Node / Frontend (React + Vite)
+# ==========================================
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini

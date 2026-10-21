@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WorkforceConnect.Domain/WorkforceConnect.Domain.csproj" />
+    <Project Path="src/WorkforceConnect.Application/WorkforceConnect.Application.csproj" />
+    <Project Path="src/WorkforceConnect.Infrastructure/WorkforceConnect.Infrastructure.csproj" />
+    <Project Path="src/WorkforceConnect.Api/WorkforceConnect.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WorkforceConnect.Tests/WorkforceConnect.Tests.csproj" />
+  </Folder>
+</Solution>
