@@ -51,3 +51,40 @@ export const roleService = {
   listRoles: (signal?: AbortSignal) => api.get<Role[]>('/api/roles', { signal }),
   listPermissions: (signal?: AbortSignal) => api.get<Permission[]>('/api/permissions', { signal }),
 };
+
+export const dailyStatusService = {
+  list: (query: import('@/core/models/types').DailyStatusQuery, signal?: AbortSignal) =>
+    api.get<import('@/core/models/types').Paged<import('@/core/models/types').DailyStatus>>('/api/dailystatus', {
+      query: { ...query },
+      signal,
+    }),
+  get: (id: number, signal?: AbortSignal) =>
+    api.get<import('@/core/models/types').DailyStatus>(`/api/dailystatus/${id}`, { signal }),
+  create: (body: import('@/core/models/types').SaveDailyStatus) =>
+    api.post<import('@/core/models/types').DailyStatus>('/api/dailystatus', body),
+  update: (id: number, body: import('@/core/models/types').SaveDailyStatus) =>
+    api.put<import('@/core/models/types').DailyStatus>(`/api/dailystatus/${id}`, body),
+  remove: (id: number) => api.delete(`/api/dailystatus/${id}`),
+  exportExcel: async (query: import('@/core/models/types').DailyStatusQuery) => {
+    const { blob, filename } = await api.downloadBlob('/api/dailystatus/export/excel', query as Record<string, string | number>);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'Team_Daily_Status_Tracker.xls';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+  exportCsv: async (query: import('@/core/models/types').DailyStatusQuery) => {
+    const { blob, filename } = await api.downloadBlob('/api/dailystatus/export/csv', query as Record<string, string | number>);
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'Team_Daily_Status_Tracker.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+};

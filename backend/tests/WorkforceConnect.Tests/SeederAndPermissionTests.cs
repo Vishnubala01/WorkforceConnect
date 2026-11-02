@@ -72,12 +72,29 @@ public class SeederAndPermissionTests
         var teamLead = await Describe(SystemRoles.TeamLead);
         Assert.Equal(DataScopeLevel.Team, teamLead.Scope);
         Assert.Equal(
-            new[] { Permissions.Employee.View, Permissions.Organization.View, Permissions.Team.View },
+            new[]
+            {
+                Permissions.DailyStatus.Create,
+                Permissions.DailyStatus.Edit,
+                Permissions.DailyStatus.Export,
+                Permissions.DailyStatus.View,
+                Permissions.Employee.View,
+                Permissions.Organization.View,
+                Permissions.Team.View
+            },
             teamLead.Grants);
 
         var employee = await Describe(SystemRoles.Employee);
         Assert.Equal(DataScopeLevel.Self, employee.Scope);
-        Assert.Equal(new[] { Permissions.Employee.View }, employee.Grants);
+        Assert.Equal(
+            new[]
+            {
+                Permissions.DailyStatus.Create,
+                Permissions.DailyStatus.Edit,
+                Permissions.DailyStatus.View,
+                Permissions.Employee.View
+            },
+            employee.Grants);
     }
 
     [Fact]

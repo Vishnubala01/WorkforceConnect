@@ -17,7 +17,7 @@ import { EmployeeFormModal } from './EmployeeFormModal';
 const PAGE_SIZE = 25;
 
 export function EmployeesPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const toast = useToast();
   const [params, setParams] = useSearchParams();
 
@@ -30,14 +30,24 @@ export function EmployeesPage() {
 
   const canViewOrganizations = can(PERMISSIONS.Organization.View);
   const organizations = useAsync((signal) => (canViewOrganizations ? organizationService.list(signal) : Promise.resolve([])), [canViewOrganizations]);
+
+  useEffect(() => {
+    if (!organizationId && user?.organization?.id) {
+      updateParams({ organizationId: String(user.organization.id) });
+    } else if (!organizationId && organizations.data && organizations.data.length === 1 && organizations.data[0]) {
+      updateParams({ organizationId: String(organizations.data[0].id) });
+    }
+  }, [organizationId, user?.organization?.id, organizations.data]);
+
   const canViewTeams = can(PERMISSIONS.Team.View);
+  const effectiveOrgId = organizationId ?? user?.organization?.id;
   const teams = useAsync(
-    (signal) => (organizationId && canViewTeams ? teamService.listByOrganization(organizationId, signal) : Promise.resolve([])),
-    [organizationId, canViewTeams],
+    (signal) => (effectiveOrgId && canViewTeams ? teamService.listByOrganization(effectiveOrgId, signal) : Promise.resolve([])),
+    [effectiveOrgId, canViewTeams],
   );
   const employees = useAsync(
-    (signal) => employeeService.list({ organizationId, teamId, search: search || undefined, page, pageSize: PAGE_SIZE }, signal),
-    [organizationId, teamId, search, page],
+    (signal) => employeeService.list({ organizationId: effectiveOrgId, teamId, search: search || undefined, page, pageSize: PAGE_SIZE }, signal),
+    [effectiveOrgId, teamId, search, page],
   );
 
   const [creating, setCreating] = useState(false);
@@ -126,10 +136,10 @@ export function EmployeesPage() {
             <SelectField
               label="Team"
               value={teamId ?? ''}
-              disabled={!organizationId}
+              disabled={!effectiveOrgId}
               onChange={(e) => updateParams({ teamId: e.target.value || undefined, page: undefined })}
             >
-              <option value="">{organizationId ? 'All teams' : 'Choose organization first'}</option>
+              <option value="">{effectiveOrgId ? 'All teams' : 'Choose organization first'}</option>
               {(teams.data ?? []).map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

@@ -136,3 +136,60 @@ export interface Permission {
   module: string;
   description: string | null;
 }
+
+export interface DailyStatus {
+  id: number;
+  date: string;
+  employeeId: number;
+  employeeCode: string;
+  employeeName: string;
+  employeeEmail: string;
+  organizationId: number;
+  organizationName: string;
+  teamId: number | null;
+  teamName: string | null;
+  projectOrTeamName: string | null;
+  workItemId: string | null;
+  taskActivity: string;
+  plannedWorkForToday: string;
+  workCompletedProgress: string;
+  status: string;
+  hoursSpent: number;
+  blockerDependency: string | null;
+  supportRequired: string | null;
+  reviewerLead: string | null;
+  remarks: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SaveDailyStatus {
+  date: string;
+  employeeId?: number;
+  organizationId?: number;
+  teamId?: number | null;
+  projectOrTeamName?: string;
+  workItemId?: string;
+  taskActivity: string;
+  plannedWorkForToday: string;
+  workCompletedProgress: string;
+  status: string;
+  hoursSpent: number;
+  blockerDependency?: string;
+  supportRequired?: string;
+  reviewerLead?: string;
+  remarks?: string;
+}
+
+export interface DailyStatusQuery {
+  fromDate?: string;
+  toDate?: string;
+  employeeId?: number;
+  organizationId?: number;
+  teamId?: number;
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+

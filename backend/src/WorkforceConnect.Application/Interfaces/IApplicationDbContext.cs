@@ -24,5 +24,7 @@ public interface IApplicationDbContext
 
     DbSet<UserTeamAccess> UserTeamAccess { get; }
 
+    DbSet<DailyStatus> DailyStatuses { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

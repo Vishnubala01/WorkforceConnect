@@ -146,3 +146,36 @@ CREATE TABLE IF NOT EXISTS UserTeamAccess (
   CONSTRAINT FK_UserTeamAccess_Teams
     FOREIGN KEY (TeamId) REFERENCES Teams (Id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Daily status tracking table matching Team Daily Status Tracker
+CREATE TABLE IF NOT EXISTS DailyStatuses (
+  Id INT NOT NULL AUTO_INCREMENT,
+  Date DATE NOT NULL,
+  EmployeeId INT NOT NULL,
+  OrganizationId INT NOT NULL,
+  TeamId INT NULL,
+  ProjectOrTeamName VARCHAR(150) NULL,
+  WorkItemId VARCHAR(100) NULL,
+  TaskActivity VARCHAR(500) NOT NULL,
+  PlannedWorkForToday VARCHAR(2000) NOT NULL,
+  WorkCompletedProgress VARCHAR(2000) NOT NULL,
+  Status VARCHAR(50) NOT NULL DEFAULT 'In Progress',
+  HoursSpent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  BlockerDependency VARCHAR(1000) NULL,
+  SupportRequired VARCHAR(1000) NULL,
+  ReviewerLead VARCHAR(150) NULL,
+  Remarks VARCHAR(1000) NULL,
+  CreatedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  UpdatedAt DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (Id),
+  KEY IX_DailyStatuses_Date_EmployeeId (Date, EmployeeId),
+  KEY IX_DailyStatuses_OrganizationId (OrganizationId),
+  KEY IX_DailyStatuses_TeamId (TeamId),
+  CONSTRAINT FK_DailyStatuses_Employees
+    FOREIGN KEY (EmployeeId) REFERENCES Employees (Id) ON DELETE CASCADE,
+  CONSTRAINT FK_DailyStatuses_Organizations
+    FOREIGN KEY (OrganizationId) REFERENCES Organizations (Id) ON DELETE CASCADE,
+  CONSTRAINT FK_DailyStatuses_Teams
+    FOREIGN KEY (TeamId) REFERENCES Teams (Id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+

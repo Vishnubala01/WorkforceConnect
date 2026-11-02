@@ -46,7 +46,12 @@ public sealed class DbSeeder(
                 Domain.Security.Permissions.Role.View,
                 Domain.Security.Permissions.Role.Create,
                 Domain.Security.Permissions.Role.Edit,
-                Domain.Security.Permissions.Role.Delete
+                Domain.Security.Permissions.Role.Delete,
+                Domain.Security.Permissions.DailyStatus.View,
+                Domain.Security.Permissions.DailyStatus.Create,
+                Domain.Security.Permissions.DailyStatus.Edit,
+                Domain.Security.Permissions.DailyStatus.Delete,
+                Domain.Security.Permissions.DailyStatus.Export
             ]),
 
         new(SystemRoles.TeamLead,
@@ -55,14 +60,21 @@ public sealed class DbSeeder(
             [
                 Domain.Security.Permissions.Organization.View,
                 Domain.Security.Permissions.Team.View,
-                Domain.Security.Permissions.Employee.View
+                Domain.Security.Permissions.Employee.View,
+                Domain.Security.Permissions.DailyStatus.View,
+                Domain.Security.Permissions.DailyStatus.Create,
+                Domain.Security.Permissions.DailyStatus.Edit,
+                Domain.Security.Permissions.DailyStatus.Export
             ]),
 
         new(SystemRoles.Employee,
             "Access to their own record only.",
             DataScopeLevel.Self,
             [
-                Domain.Security.Permissions.Employee.View
+                Domain.Security.Permissions.Employee.View,
+                Domain.Security.Permissions.DailyStatus.View,
+                Domain.Security.Permissions.DailyStatus.Create,
+                Domain.Security.Permissions.DailyStatus.Edit
             ])
     ];
 
@@ -123,10 +135,25 @@ public sealed class DbSeeder(
 
                 foreach (var permissionName in seed.Permissions)
                 {
-                    role.RolePermissions.Add(new RolePermission { Permission = permissionsByName[permissionName] });
+                    if (permissionsByName.TryGetValue(permissionName, out var p))
+                    {
+                        role.RolePermissions.Add(new RolePermission { Permission = p });
+                    }
                 }
 
                 db.Roles.Add(role);
+            }
+            else if (role.IsSystem)
+            {
+                // Ensure new system permissions (like DailyStatus) are granted to existing system roles
+                var assignedIds = role.RolePermissions.Select(rp => rp.PermissionId).ToHashSet();
+                foreach (var permissionName in seed.Permissions)
+                {
+                    if (permissionsByName.TryGetValue(permissionName, out var p) && !assignedIds.Contains(p.Id))
+                    {
+                        role.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = p.Id });
+                    }
+                }
             }
         }
 
