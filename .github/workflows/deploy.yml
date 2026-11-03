@@ -1,0 +1,66 @@
+
+name: WorkforceConnect - Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - main
+      - devops/github-actions-cicd
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_API_REPOSITORY: workforceconnect-api
+  ECR_FRONTEND_REPOSITORY: workforceconnect-frontend
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image tag
+        id: image-tag
+        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+        run: |
+          docker build \
+            -t $REGISTRY/$ECR_API_REPOSITORY:$IMAGE_TAG \
+            -f backend/src/WorkforceConnect.Api/Dockerfile \
+            backend
+
+          docker push $REGISTRY/$ECR_API_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and push frontend image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.image-tag.outputs.tag }}
+        run: |
+          docker build \
+            -t $REGISTRY/$ECR_FRONTEND_REPOSITORY:$IMAGE_TAG \
+            -f frontend/Dockerfile \
+            frontend
+
+          docker push $REGISTRY/$ECR_FRONTEND_REPOSITORY:$IMAGE_TAG
