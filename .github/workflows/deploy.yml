@@ -99,14 +99,14 @@ jobs:
           docker push "$REGISTRY/$ECR_FRONTEND_REPOSITORY:$IMAGE_TAG"
 
   # ==========================================
-  # JOB 2: AUTOMATIC DEPLOYMENT TO EC2 VIA SSM
+  # JOB 2: AUTOMATIC EC2 STARTUP AND DEPLOYMENT
   # ==========================================
   deploy-to-ec2:
     name: Deploy to EC2 using SSM
     needs: build-and-push
     runs-on: ubuntu-latest
 
-    # Test CD only on the DevOps branch initially.
+    # Deploy only from DevOps branch during testing.
     if: github.ref == 'refs/heads/devops/github-actions-cicd'
 
     concurrency:
@@ -114,12 +114,101 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # STEP 1: AUTHENTICATE WITH AWS
       - name: Configure AWS credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
+      # STEP 2: CHECK EC2 STATE AND START IF REQUIRED
+      - name: Check and start EC2 instance
+        env:
+          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$INSTANCE_ID" ]; then
+            echo "Missing EC2_INSTANCE_ID GitHub secret."
+            exit 1
+          fi
+
+          STATE=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
+            --query "Reservations[0].Instances[0].State.Name" \
+            --output text)
+
+          echo "Current EC2 state: $STATE"
+
+          case "$STATE" in
+            stopped)
+              echo "EC2 is stopped. Starting instance..."
+              aws ec2 start-instances \
+                --instance-ids "$INSTANCE_ID"
+              ;;
+            stopping)
+              echo "EC2 is stopping. Waiting for it to stop..."
+
+              aws ec2 wait instance-stopped \
+                --instance-ids "$INSTANCE_ID"
+
+              aws ec2 start-instances \
+                --instance-ids "$INSTANCE_ID"
+              ;;
+            running)
+              echo "EC2 is already running."
+              ;;
+            pending)
+              echo "EC2 is already starting."
+              ;;
+            *)
+              echo "Cannot deploy. Current EC2 state: $STATE"
+              exit 1
+              ;;
+          esac
+
+          echo "Waiting for EC2 running state..."
+
+          aws ec2 wait instance-running \
+            --instance-ids "$INSTANCE_ID"
+
+          echo "Waiting for EC2 status checks..."
+
+          aws ec2 wait instance-status-ok \
+            --instance-ids "$INSTANCE_ID"
+
+          echo "EC2 instance is ready."
+
+      # STEP 3: WAIT FOR SSM AGENT
+      - name: Wait for SSM Agent to become online
+        env:
+          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+
+          echo "Waiting for SSM Agent..."
+
+          for attempt in $(seq 1 60); do
+
+            STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo "Offline")
+
+            echo "SSM status: $STATUS"
+
+            if [ "$STATUS" = "Online" ]; then
+              echo "SSM Agent is online."
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "SSM Agent did not become online within 10 minutes."
+          exit 1
+
+      # STEP 4: SEND DEPLOYMENT COMMAND THROUGH SSM
       - name: Send deployment command through SSM
         id: deploy
         env:
@@ -128,12 +217,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "$INSTANCE_ID" ]; then
-            echo "Missing EC2_INSTANCE_ID GitHub secret"
-            exit 1
-          fi
+          echo "Deploying image: $IMAGE_TAG"
 
-          DEPLOY_SCRIPT=$(cat <<EOF
+          DEPLOY_SCRIPT="$(
+            printf 'export IMAGE_TAG=%q\n' "$IMAGE_TAG"
+            cat <<'SSM_SCRIPT'
           set -euo pipefail
 
           cd /home/ubuntu/workforceconnect
@@ -142,20 +230,50 @@ jobs:
           test -f compose.prod.yaml
           grep -q '^IMAGE_TAG=' .env
 
-          sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=$IMAGE_TAG/' .env
-
-          aws ecr get-login-password --region ap-south-1 | docker login \\
-            --username AWS \\
+          # Authenticate Docker to Amazon ECR.
+          aws ecr get-login-password --region ap-south-1 | docker login \
+            --username AWS \
             --password-stdin 435466091315.dkr.ecr.ap-south-1.amazonaws.com
 
+          # Update the deployed image tag.
+          sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
+
+          # Pull updated application images.
           docker compose -f compose.prod.yaml pull backend frontend
 
-          docker compose -f compose.prod.yaml up -d \\
+          # Recreate backend and frontend only.
+          docker compose -f compose.prod.yaml up -d \
             --no-deps backend frontend
 
+          sleep 10
+
+          # Verify application containers.
+          for service in backend frontend; do
+            CONTAINER_ID=$(docker compose -f compose.prod.yaml ps -q "$service")
+
+            if [ -z "$CONTAINER_ID" ]; then
+              echo "$service container was not found."
+              exit 1
+            fi
+
+            STATUS=$(docker inspect --format '{{.State.Status}}' "$CONTAINER_ID")
+
+            if [ "$STATUS" != "running" ]; then
+              echo "$service container failed: $STATUS"
+              exit 1
+            fi
+
+            echo "$service container is running."
+          done
+
+          # Verify frontend response.
+          curl -fsS http://localhost:8081 -o /dev/null
+
+          echo "WorkforceConnect deployment completed successfully."
+
           docker compose -f compose.prod.yaml ps
-          EOF
-          )
+          SSM_SCRIPT
+          )"
 
           PARAMETERS=$(jq -n \
             --arg script "$DEPLOY_SCRIPT" \
@@ -172,6 +290,7 @@ jobs:
           echo "SSM Command ID: $COMMAND_ID"
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
+      # STEP 5: WAIT FOR DEPLOYMENT RESULT
       - name: Wait for deployment result
         env:
           INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
@@ -180,6 +299,7 @@ jobs:
           set -euo pipefail
 
           for attempt in $(seq 1 60); do
+
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
               --instance-id "$INSTANCE_ID" \
@@ -190,7 +310,7 @@ jobs:
 
             case "$STATUS" in
               Success)
-                echo "Deployment command completed successfully."
+                echo "Deployment completed successfully."
 
                 aws ssm get-command-invocation \
                   --command-id "$COMMAND_ID" \
