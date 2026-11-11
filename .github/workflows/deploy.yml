@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - devops/github-actions-ci-cd
+      - devops/github-actions-cicd
 
   workflow_dispatch:
 
@@ -108,8 +108,8 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
 
-    # Deploy only from DevOps branch during testing.
-    if: github.ref == 'refs/heads/devops/github-actions-ci-cd'
+    # Deploy only from the DevOps branch during testing.
+    if: ${{ github.ref == 'refs/heads/devops/github-actions-cicd' }}
 
     concurrency:
       group: workforceconnect-ec2-deployment
@@ -240,30 +240,27 @@ jobs:
           PREVIOUS_IMAGE_TAG=$(grep '^IMAGE_TAG=' .env | cut -d '=' -f2-)
 
           if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
-            echo "Previous image tag is empty. Cannot safely deploy."
+            echo "Previous image tag is empty."
             exit 1
           fi
 
           echo "Previous image: $PREVIOUS_IMAGE_TAG"
           echo "New image: $IMAGE_TAG"
 
-          # Rollback function.
+          # Automatic rollback function.
           rollback() {
             DEPLOY_EXIT_CODE=$?
 
             trap - ERR
             set +e
 
-            echo "======================================"
-            echo "DEPLOYMENT FAILED"
-            echo "Starting automatic rollback..."
+            echo "Deployment failed. Starting rollback..."
             echo "Restoring image: $PREVIOUS_IMAGE_TAG"
-            echo "======================================"
 
             # Restore previous image tag.
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${PREVIOUS_IMAGE_TAG}/" .env
 
-            # Pull previous working images.
+            # Pull previous images.
             docker compose -f compose.prod.yaml pull backend frontend
 
             if [ $? -ne 0 ]; then
@@ -271,7 +268,7 @@ jobs:
               exit 1
             fi
 
-            # Recreate previous application containers.
+            # Restart previous containers.
             docker compose -f compose.prod.yaml up -d \
               --no-deps backend frontend
 
@@ -282,7 +279,7 @@ jobs:
 
             sleep 10
 
-            # Verify rollback.
+            # Verify previous containers.
             for service in backend frontend; do
               CONTAINER_ID=$(docker compose -f compose.prod.yaml ps -q "$service")
 
@@ -299,7 +296,7 @@ jobs:
               fi
             done
 
-            # Verify frontend response.
+            # Verify frontend.
             curl -fsS http://localhost:8081 -o /dev/null
 
             if [ $? -ne 0 ]; then
@@ -307,10 +304,8 @@ jobs:
               exit 1
             fi
 
-            echo "======================================"
-            echo "ROLLBACK COMPLETED SUCCESSFULLY"
-            echo "Previous version: $PREVIOUS_IMAGE_TAG"
-            echo "======================================"
+            echo "ROLLBACK COMPLETED SUCCESSFULLY."
+            echo "Restored version: $PREVIOUS_IMAGE_TAG"
 
             docker compose -f compose.prod.yaml ps
 
@@ -318,7 +313,7 @@ jobs:
             exit "$DEPLOY_EXIT_CODE"
           }
 
-          # Activate automatic rollback on command failure.
+          # Activate rollback on deployment errors.
           trap rollback ERR
 
           # Authenticate Docker to Amazon ECR.
@@ -326,13 +321,13 @@ jobs:
             --username AWS \
             --password-stdin 435466091315.dkr.ecr.ap-south-1.amazonaws.com
 
-          # Update the deployed image tag.
+          # Update image tag.
           sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
 
-          # Pull updated application images.
+          # Pull updated images.
           docker compose -f compose.prod.yaml pull backend frontend
 
-          # Recreate backend and frontend only.
+          # Deploy updated application.
           docker compose -f compose.prod.yaml up -d \
             --no-deps backend frontend
 
@@ -354,13 +349,11 @@ jobs:
           # Verify frontend response.
           curl -fsS http://localhost:8081 -o /dev/null
 
-          # Deployment succeeded. Disable rollback trap.
+          # Deployment successful; disable rollback.
           trap - ERR
 
-          echo "======================================"
-          echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
+          echo "DEPLOYMENT COMPLETED SUCCESSFULLY."
           echo "Deployed image: $IMAGE_TAG"
-          echo "======================================"
 
           docker compose -f compose.prod.yaml ps
 
