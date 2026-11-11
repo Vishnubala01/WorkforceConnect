@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - main
-      - devops/github-actions-ci-cd
+      - devops/github-actions-cicd
 
   workflow_dispatch:
 
@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Deploy only from DevOps branch during testing.
-    if: github.ref == 'refs/heads/devops/github-actions-cicd'
+    if: ${{ github.ref == 'refs/heads/devops/github-actions-cicd' }}
 
     concurrency:
       group: workforceconnect-ec2-deployment
@@ -225,9 +225,11 @@ jobs:
 
           echo "Deploying image: $IMAGE_TAG"
 
+          # Build deployment script.
           DEPLOY_SCRIPT="$(
             printf 'export IMAGE_TAG=%q\n' "$IMAGE_TAG"
             cat <<'SSM_SCRIPT'
+          #!/usr/bin/env bash
           set -Eeuo pipefail
 
           cd /home/ubuntu/workforceconnect
@@ -236,18 +238,20 @@ jobs:
           test -f compose.prod.yaml
           grep -q '^IMAGE_TAG=' .env
 
-          # Save the previous working image tag.
+          # Save previous working image tag.
           PREVIOUS_IMAGE_TAG=$(grep '^IMAGE_TAG=' .env | cut -d '=' -f2-)
 
           if [ -z "$PREVIOUS_IMAGE_TAG" ]; then
-            echo "Previous image tag is empty. Cannot safely deploy."
+            echo "Previous image tag is empty."
             exit 1
           fi
 
           echo "Previous image: $PREVIOUS_IMAGE_TAG"
           echo "New image: $IMAGE_TAG"
 
-          # Rollback function.
+          # ======================================
+          # AUTOMATIC ROLLBACK FUNCTION
+          # ======================================
           rollback() {
             DEPLOY_EXIT_CODE=$?
 
@@ -263,7 +267,7 @@ jobs:
             # Restore previous image tag.
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${PREVIOUS_IMAGE_TAG}/" .env
 
-            # Pull previous working images.
+            # Pull previous Docker images.
             docker compose -f compose.prod.yaml pull backend frontend
 
             if [ $? -ne 0 ]; then
@@ -271,7 +275,7 @@ jobs:
               exit 1
             fi
 
-            # Recreate previous application containers.
+            # Restart previous application containers.
             docker compose -f compose.prod.yaml up -d \
               --no-deps backend frontend
 
@@ -282,8 +286,9 @@ jobs:
 
             sleep 10
 
-            # Verify rollback.
+            # Verify previous containers.
             for service in backend frontend; do
+
               CONTAINER_ID=$(docker compose -f compose.prod.yaml ps -q "$service")
 
               if [ -z "$CONTAINER_ID" ]; then
@@ -297,6 +302,9 @@ jobs:
                 echo "ERROR: $service is not running after rollback."
                 exit 1
               fi
+
+              echo "$service is running after rollback."
+
             done
 
             # Verify frontend response.
@@ -309,7 +317,7 @@ jobs:
 
             echo "======================================"
             echo "ROLLBACK COMPLETED SUCCESSFULLY"
-            echo "Previous version: $PREVIOUS_IMAGE_TAG"
+            echo "Restored version: $PREVIOUS_IMAGE_TAG"
             echo "======================================"
 
             docker compose -f compose.prod.yaml ps
@@ -318,28 +326,35 @@ jobs:
             exit "$DEPLOY_EXIT_CODE"
           }
 
-          # Activate automatic rollback on command failure.
+          # Enable automatic rollback on errors.
           trap rollback ERR
 
-          # Authenticate Docker to Amazon ECR.
+          # ======================================
+          # AUTHENTICATE WITH AMAZON ECR
+          # ======================================
           aws ecr get-login-password --region ap-south-1 | docker login \
             --username AWS \
             --password-stdin 435466091315.dkr.ecr.ap-south-1.amazonaws.com
 
-          # Update the deployed image tag.
+          # ======================================
+          # UPDATE IMAGE TAG
+          # ======================================
           sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
 
-          # Pull updated application images.
+          # Pull updated Docker images.
           docker compose -f compose.prod.yaml pull backend frontend
 
-          # Recreate backend and frontend only.
+          # Deploy updated application containers.
           docker compose -f compose.prod.yaml up -d \
             --no-deps backend frontend
 
           sleep 10
 
-          # Verify application containers.
+          # ======================================
+          # VERIFY DEPLOYMENT
+          # ======================================
           for service in backend frontend; do
+
             CONTAINER_ID=$(docker compose -f compose.prod.yaml ps -q "$service")
 
             test -n "$CONTAINER_ID"
@@ -349,12 +364,13 @@ jobs:
             test "$STATUS" = "running"
 
             echo "$service container is running."
+
           done
 
-          # Verify frontend response.
+          # Verify frontend HTTP response.
           curl -fsS http://localhost:8081 -o /dev/null
 
-          # Deployment succeeded. Disable rollback trap.
+          # Disable rollback after successful deployment.
           trap - ERR
 
           echo "======================================"
@@ -367,10 +383,12 @@ jobs:
           SSM_SCRIPT
           )"
 
+          # Explicitly execute the SSM script using Bash.
           PARAMETERS=$(jq -n \
             --arg script "$DEPLOY_SCRIPT" \
-            '{commands: [$script]}')
+            '{commands: ["bash -c " + ($script | @sh)]}')
 
+          # Send deployment command to EC2.
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
@@ -380,6 +398,7 @@ jobs:
             --output text)
 
           echo "SSM Command ID: $COMMAND_ID"
+
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
 
 
@@ -402,6 +421,7 @@ jobs:
             echo "Deployment status: $STATUS"
 
             case "$STATUS" in
+
               Success)
                 echo "Deployment completed successfully."
 
@@ -431,6 +451,7 @@ jobs:
 
                 exit 1
                 ;;
+
             esac
 
             sleep 5
