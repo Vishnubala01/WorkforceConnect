@@ -109,7 +109,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Deploy only from DevOps branch during testing.
-    if: github.ref == 'refs/heads/devops/github-actions-ci-cd'
+    if: github.ref == 'refs/heads/devops/github-actions-cicd'
 
     concurrency:
       group: workforceconnect-ec2-deployment
