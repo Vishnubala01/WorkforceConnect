@@ -5,6 +5,7 @@ import { RequireAuth, RequirePermission } from '@/core/guards/guards';
 import { AccountPage } from '@/features/account/AccountPage';
 import { RolesPage } from '@/features/administration/RolesPage';
 import { LoginPage } from '@/features/authentication/LoginPage';
+import { DailyStatusPage } from '@/features/dailystatus/DailyStatusPage';
 import { EmployeesPage } from '@/features/employees/EmployeesPage';
 import { OrganizationPage } from '@/features/organizations/OrganizationPage';
 import { OrganizationsPage } from '@/features/organizations/OrganizationsPage';
@@ -63,6 +64,7 @@ export function AppRoutes() {
               </RequirePermission>
             }
           />
+          <Route path="daily-status" element={<DailyStatusPage />} />
           <Route
             path="roles"
             element={

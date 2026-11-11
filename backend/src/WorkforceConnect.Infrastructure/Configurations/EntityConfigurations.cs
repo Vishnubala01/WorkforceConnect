@@ -198,3 +198,44 @@ public sealed class UserTeamAccessConfiguration : IEntityTypeConfiguration<UserT
             .OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public sealed class DailyStatusConfiguration : IEntityTypeConfiguration<DailyStatus>
+{
+    public void Configure(EntityTypeBuilder<DailyStatus> builder)
+    {
+        builder.ToTable("DailyStatuses");
+        builder.HasKey(ds => ds.Id);
+
+        builder.Property(ds => ds.Date).IsRequired();
+        builder.Property(ds => ds.ProjectOrTeamName).HasMaxLength(150);
+        builder.Property(ds => ds.WorkItemId).HasMaxLength(100);
+        builder.Property(ds => ds.TaskActivity).IsRequired().HasMaxLength(500);
+        builder.Property(ds => ds.PlannedWorkForToday).IsRequired().HasMaxLength(2000);
+        builder.Property(ds => ds.WorkCompletedProgress).IsRequired().HasMaxLength(2000);
+        builder.Property(ds => ds.Status).IsRequired().HasMaxLength(50);
+        builder.Property(ds => ds.HoursSpent).HasPrecision(5, 2);
+        builder.Property(ds => ds.BlockerDependency).HasMaxLength(1000);
+        builder.Property(ds => ds.SupportRequired).HasMaxLength(1000);
+        builder.Property(ds => ds.ReviewerLead).HasMaxLength(150);
+        builder.Property(ds => ds.Remarks).HasMaxLength(1000);
+
+        builder.HasOne(ds => ds.Employee)
+            .WithMany()
+            .HasForeignKey(ds => ds.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(ds => ds.Organization)
+            .WithMany()
+            .HasForeignKey(ds => ds.OrganizationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(ds => ds.Team)
+            .WithMany()
+            .HasForeignKey(ds => ds.TeamId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasIndex(ds => new { ds.Date, ds.EmployeeId });
+        builder.HasIndex(ds => ds.OrganizationId);
+    }
+}
+

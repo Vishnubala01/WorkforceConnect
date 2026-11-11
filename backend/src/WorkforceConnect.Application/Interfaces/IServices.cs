@@ -54,3 +54,21 @@ public interface IRoleService
 
     Task<IReadOnlyList<PermissionResponse>> ListPermissionsAsync(CancellationToken ct = default);
 }
+
+public interface IDailyStatusService
+{
+    Task<PagedResponse<DailyStatusResponse>> ListAsync(DailyStatusQuery query, CancellationToken ct = default);
+
+    Task<DailyStatusResponse> GetAsync(int id, CancellationToken ct = default);
+
+    Task<DailyStatusResponse> CreateAsync(SaveDailyStatusRequest request, CancellationToken ct = default);
+
+    Task<DailyStatusResponse> UpdateAsync(int id, SaveDailyStatusRequest request, CancellationToken ct = default);
+
+    Task DeleteAsync(int id, CancellationToken ct = default);
+
+    Task<byte[]> ExportExcelAsync(DailyStatusQuery query, CancellationToken ct = default);
+
+    Task<byte[]> ExportCsvAsync(DailyStatusQuery query, CancellationToken ct = default);
+}
+

@@ -105,4 +105,21 @@ public sealed class DataScope
             || (e.TeamId.HasValue && teamIds.Contains(e.TeamId.Value))
             || e.Id == self);
     }
+
+    public IQueryable<DailyStatus> Filter(IQueryable<DailyStatus> query)
+    {
+        if (IsAll)
+        {
+            return query;
+        }
+
+        var organizationIds = OrganizationIds.ToList();
+        var teamIds = TeamIds.ToList();
+        var self = EmployeeId ?? -1;
+
+        return query.Where(ds =>
+            organizationIds.Contains(ds.OrganizationId)
+            || (ds.TeamId.HasValue && teamIds.Contains(ds.TeamId.Value))
+            || ds.EmployeeId == self);
+    }
 }

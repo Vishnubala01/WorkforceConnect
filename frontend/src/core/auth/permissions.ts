@@ -25,4 +25,11 @@ export const PERMISSIONS = {
     Edit: 'Role.Edit',
     Delete: 'Role.Delete',
   },
+  DailyStatus: {
+    View: 'DailyStatus.View',
+    Create: 'DailyStatus.Create',
+    Edit: 'DailyStatus.Edit',
+    Delete: 'DailyStatus.Delete',
+    Export: 'DailyStatus.Export',
+  },
 } as const;

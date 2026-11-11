@@ -12,6 +12,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/organizations', label: 'Organizations', group: 'Workspace', permission: PERMISSIONS.Organization.View },
   { to: '/employees', label: 'Employees', group: 'Workspace', permission: PERMISSIONS.Employee.View },
+  { to: '/daily-status', label: 'Daily status', group: 'Workspace' },
   { to: '/roles', label: 'Roles and permissions', group: 'Administration', permission: PERMISSIONS.Role.View },
   { to: '/account', label: 'My account', group: 'Account' },
 ];

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/core/auth/AuthContext';
 import { initials } from '@/shared/utils/format';
+import { NotificationBell } from '@/shared/components/NotificationBell';
 import { NAV_ITEMS } from './navigation';
 
 export function AppShell() {
@@ -71,9 +72,18 @@ export function AppShell() {
         </div>
       </aside>
 
-      <main id="main" className="content" tabIndex={-1}>
-        <Outlet />
-      </main>
+      <div className="app-main-area">
+        <header className="app-topbar">
+          <div className="app-topbar__left" />
+          <div className="app-topbar__right">
+            <NotificationBell />
+          </div>
+        </header>
+
+        <main id="main" className="content" tabIndex={-1}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

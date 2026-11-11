@@ -39,11 +39,21 @@ public static class Permissions
         public const string Delete = "Role.Delete";
     }
 
+    public static class DailyStatus
+    {
+        public const string View = "DailyStatus.View";
+        public const string Create = "DailyStatus.Create";
+        public const string Edit = "DailyStatus.Edit";
+        public const string Delete = "DailyStatus.Delete";
+        public const string Export = "DailyStatus.Export";
+    }
+
     public static IReadOnlyList<string> All { get; } = new[]
     {
         Organization.View, Organization.Create, Organization.Edit, Organization.Delete,
         Team.View, Team.Create, Team.Edit, Team.Delete,
         Employee.View, Employee.Create, Employee.Edit, Employee.Delete,
-        Role.View, Role.Create, Role.Edit, Role.Delete
+        Role.View, Role.Create, Role.Edit, Role.Delete,
+        DailyStatus.View, DailyStatus.Create, DailyStatus.Edit, DailyStatus.Delete, DailyStatus.Export
     };
 }

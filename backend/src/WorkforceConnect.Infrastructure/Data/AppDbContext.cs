@@ -24,6 +24,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<UserTeamAccess> UserTeamAccess => Set<UserTeamAccess>();
 
+    public DbSet<DailyStatus> DailyStatuses => Set<DailyStatus>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

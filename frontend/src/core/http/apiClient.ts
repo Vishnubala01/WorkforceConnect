@@ -95,4 +95,27 @@ export const api = {
   put: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, 'body'>) =>
     request<T>('PUT', path, { ...options, body }),
   delete: <T = void>(path: string, options?: Omit<RequestOptions, 'body'>) => request<T>('DELETE', path, options),
+  downloadBlob: async (path: string, query?: Query): Promise<{ blob: Blob; filename: string }> => {
+    const headers: Record<string, string> = {};
+    const session = readSession();
+    if (session) headers.Authorization = `Bearer ${session.token}`;
+
+    const response = await fetch(buildUrl(path, query), { headers });
+    if (!response.ok) {
+      if (response.status === 401 && session) onUnauthorized?.();
+      throw await toError(response);
+    }
+
+    const disposition = response.headers.get('content-disposition');
+    let filename = 'download';
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (match && match[1]) {
+        filename = match[1].replace(/['"]/g, '');
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  },
 };
